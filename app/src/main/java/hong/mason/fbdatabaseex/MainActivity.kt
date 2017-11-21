@@ -1,64 +1,26 @@
 package hong.mason.fbdatabaseex
 
-import android.app.Activity
-import android.content.Intent
 import android.support.v7.app.AppCompatActivity
 import android.os.Bundle
 import android.support.v7.widget.DividerItemDecoration
 import android.support.v7.widget.LinearLayoutManager
-import android.widget.Toast
-import com.firebase.ui.auth.AuthUI
-import com.firebase.ui.auth.IdpResponse
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.database.DataSnapshot
-import com.google.firebase.database.DatabaseError
-import com.google.firebase.database.FirebaseDatabase
-import com.google.firebase.database.ValueEventListener
+import android.util.Log
+import com.google.firebase.firestore.*
 import hong.mason.fbdatabaseex.adapter.TaskListAdapter
-import hong.mason.fbdatabaseex.data.NoticeDTO
 import hong.mason.fbdatabaseex.data.TaskDTO
 import kotlinx.android.synthetic.main.activity_main.*
+import java.util.*
+import kotlin.collections.ArrayList
 
 class MainActivity : AppCompatActivity() {
-    val adapter : TaskListAdapter = TaskListAdapter()
+    private val adapter : TaskListAdapter = TaskListAdapter()
+    private val db = FirebaseFirestore.getInstance()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         setupView()
-
-
-        if(FirebaseAuth.getInstance().currentUser == null) {
-            val providers = mutableListOf(AuthUI.IdpConfig.Builder(AuthUI.GOOGLE_PROVIDER).build())
-
-            startActivityForResult(
-                    AuthUI.getInstance()
-                            .createSignInIntentBuilder()
-                            .setAvailableProviders(providers)
-                            .build(),
-                    Constants.Request.REQUEST_AUTH)
-        } else {
-            loadData()
-        }
-
-        buttonUpdate.setOnClickListener {
-            updateNotice(0, "Local update!!")
-        }
-    }
-
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-
-        when(requestCode) {
-            Constants.Request.REQUEST_AUTH -> {
-                val response = IdpResponse.fromResultIntent(data)
-                if (resultCode == Activity.RESULT_OK) {
-                    val user = FirebaseAuth.getInstance().currentUser
-                    Toast.makeText(baseContext, "Success::$user", Toast.LENGTH_SHORT).show()
-                    loadData()
-                }
-            }
-        }
+        loadData()
     }
 
     private fun setupView() {
@@ -66,40 +28,57 @@ class MainActivity : AppCompatActivity() {
         recyclerView.layoutManager = LinearLayoutManager(baseContext)
         recyclerView.adapter = adapter
         recyclerView.addItemDecoration(DividerItemDecoration(baseContext, DividerItemDecoration.VERTICAL))
+
+        buttonAdd.setOnClickListener {
+            addData()
+        }
     }
 
     private fun loadData() {
-        FirebaseDatabase.getInstance()
-                .reference.child("notice")
-                .addValueEventListener(object : ValueEventListener {
-                    override fun onCancelled(p0: DatabaseError?) {
+        db.collection("tasks")
+                .get()
+                .addOnCompleteListener {
+                    if(it.isSuccessful) {
+                        val list : MutableList<Any> = ArrayList()
+                        it.result.documents.forEach {
+                            val data = TaskDTO(
+                                    it.data.getOrDefault("name", "null") as String,
+                                    (it.data.getOrDefault("value", 0) as Long).toInt())
+                            list.add(data)
+                        }
+                        adapter.setList(list)
+                    }
+                }
+        db.collection("tasks")
+                .addSnapshotListener { snapshot, e ->
+                    if (e != null) {
+                        e.printStackTrace()
+                        return@addSnapshotListener
                     }
 
-                    override fun onDataChange(p0: DataSnapshot) {
-                        val list = p0.children.map { data ->
-                            NoticeDTO(data.value as String)
+                    if (snapshot?.isEmpty == false) {
+                        val list: MutableList<Any> = ArrayList()
+                        snapshot.documentChanges.forEach {
+                            val data = TaskDTO(
+                                    it.document.data.getOrDefault("name", "null") as String,
+                                    (it.document.data.getOrDefault("value", 0) as Long).toInt())
+                            list.add(data)
                         }
-                        adapter.addNotice(list)
+                        adapter.updateData(list)
                     }
-                })
-        FirebaseDatabase.getInstance()
-                .reference.child("task")
-                .addValueEventListener(object : ValueEventListener {
-                    override fun onCancelled(p0: DatabaseError?) {
-                    }
-
-                    override fun onDataChange(p0: DataSnapshot) {
-                        val list = p0.children.map { data ->
-                            TaskDTO(data.child("title").value as String, data.child("content").value as String)
-                        }
-                        adapter.addTask(list)
-                    }
-                })
+                }
     }
 
-    private fun updateNotice(index: Int, text: String) {
-        FirebaseDatabase.getInstance()
-                .reference.child("notice")
-                .child(index.toString()).setValue(text)
+    private fun addData() {
+        val user = arrayOf("mason", "daniel", "sian", "jules", "courtney", "lupin", "landon", "aiden")
+        val rand = Random()
+        val map = HashMap<String, Any>()
+        map.put("name", user[Math.abs(rand.nextInt()) % user.size])
+        map.put("value", rand.nextInt())
+        db.collection("tasks")
+                .add(map)
+                .addOnSuccessListener {
+                    Log.d("MainActivity", "addData::Success")
+                }
     }
 }

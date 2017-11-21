@@ -11,8 +11,8 @@ import kotlinx.android.synthetic.main.viewholder_task.view.*
 class TaskViewHolder(itemView: View) : BaseViewHolder(itemView) {
     override fun onBind(data: Any) {
         if(data is TaskDTO) {
-            itemView.textTitle.text = data.title
-            itemView.textContent.text = data.content
+            itemView.textTitle.text = data.name
+            itemView.textContent.text = data.value.toString()
         }
     }
 }

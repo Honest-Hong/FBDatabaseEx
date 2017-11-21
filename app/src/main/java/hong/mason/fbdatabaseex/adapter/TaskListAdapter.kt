@@ -15,9 +15,7 @@ import hong.mason.fbdatabaseex.base.HasViewType
  * Created by kakao on 2017. 11. 14..
  */
 class TaskListAdapter : RecyclerView.Adapter<BaseViewHolder>() {
-    private var list : List<Any> = emptyList()
-    private var noticeSize = 0
-    private var taskSize = 0
+    private var list : MutableList<Any> = ArrayList()
 
     override fun onBindViewHolder(holder: BaseViewHolder?, position: Int) {
         holder?.onBind(list[position])
@@ -40,26 +38,22 @@ class TaskListAdapter : RecyclerView.Adapter<BaseViewHolder>() {
         }
     }
 
-    fun addNotice(list: List<Any>) {
-        val mutable = this.list.toMutableList()
-        (0 until noticeSize).forEach {
-            mutable.removeAt(0)
-        }
-        mutable.addAll(0, list)
-        this.list = mutable.toList()
-        noticeSize = list.size
+    fun setList(list : MutableList<Any>) {
+        this.list = list
         notifyDataSetChanged()
     }
 
-    fun addTask(list: List<Any>) {
-        val mutable = this.list.toMutableList()
-        (noticeSize until noticeSize + taskSize).forEach {
-            mutable.removeAt(noticeSize)
+    fun updateData(updateList: List<Any>) {
+        updateList.forEach {
+            if (list.contains(it)) {
+                val index = list.indexOf(it)
+                list[index] = it
+                notifyItemChanged(index)
+            } else {
+                list.add(it)
+                notifyItemInserted(list.size - 1)
+            }
         }
-        mutable.addAll(list)
-        this.list = mutable.toList()
-        taskSize = list.size
-        notifyDataSetChanged()
     }
 
     private fun ViewGroup.inflate(id: Int) : View
